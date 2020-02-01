@@ -1,0 +1,240 @@
+
+# Base control protocol messages
+
+import "log.proto";
+
+// Control messages
+namespace Ctrl
+{
+
+typedef MessageType ( uint32 );
+
+// To be inherited by ALL control messages
+message Message
+{
+    // We use this for determining message type
+    protected unique required MessageType type : 1;
+
+    # It has to be protected to be aliased by other fields that are defined by other messages!
+    // storage type for various smaller fields
+    protected optional uint32 bit_storage : 2;
+
+    // Whether this message is a request message or not.
+    protected unique alias is_request : bit_storage [ 0 ];
+
+    // Whether this message is an update message or not.
+    protected unique alias is_update : bit_storage [ 1 ];
+
+    // Whether this message is a subscription request or not.
+    protected unique alias is_sub_request : bit_storage [ 3 ];
+
+    // Reserved for future use
+    protected alias reserved : bit_storage [ 4 - 7 ];
+}
+
+// A message inherited by all control messages that can expect a response.
+message Request(Message)
+{
+    defined is_request = true;
+
+    // When set to true, the response will always be generated, even if the operation is successful.
+    // (normally only error codes or message specific responses are returned)
+    public alias request_response : bit_storage [ 2 ];
+
+    // The ID of the request. If it is present, the response is always generated and it includes the same ID.
+    public optional uint32 request_id : 5;
+}
+
+// A control message that is not a request.
+// It is either an update, or a response sent as a result of receiving a request.
+// If it is used as a response, it should carry the type of the original request and the error code
+// (which could be 'success'). If the original request also included a "request ID", then the same
+// ID should be included in this response message.
+message Update(Message)
+{
+    defined is_update = true;
+
+    // The error code (which could be 'success')
+    optional ErrorCode code : 5;
+
+    // The type of the request to which this message is a response
+    optional MessageType request_type : 6;
+
+    // The ID of the request that caused this response
+    optional uint32 request_id : 7;
+}
+
+// A 'simple' response, that doesn't carry any extra data
+message SimpleResponse(Update)
+{
+    defined type = 1;
+}
+
+// Represents a subscribe/unsubscribe request.
+message SubscriptionRequest(Request)
+{
+    defined is_sub_request = true;
+
+    // The type of subscription request
+    enum ReqType
+    {
+        Invalid     = -1 [ default ]; // Invalid type.
+        Subscribe   = 0; // Start subscriptions
+        Unsubscribe = 1; // Stop subscriptions
+    }
+
+    required ReqType sub_request_type : 10; // Indicates if this request should start or stop subscriptions.
+}
+
+// Represents a simple subscription request response.
+message SimpleSubscriptionResponse(Update)
+{
+    defined type = 2;
+
+    // The list of updates that represent the initial state of the property the caller subscribed to.
+    repeated Message updates : 10;
+}
+
+// A control "ping" message.
+message Ping(Request)
+{
+    defined type = 5;
+
+    // Optional payload to include in the response
+    optional string payload : 10;
+}
+
+// A control "pong" message.
+message Pong(Update)
+{
+    defined type = 6;
+
+    // Payload that was included in the ping message
+    optional string payload : 10;
+}
+
+########################################################################################################################
+##################################################### BASIC CONTROL ####################################################
+########################################################################################################################
+
+// Sets some basic configuration parameters
+message SetConfig(Request)
+{
+    defined type = 50;
+
+    // This feature, when enabled, will cause the daemon to stop
+    // when the control client that sent this message disconnects.
+    optional public salias stop_on_close : bit_storage [ 9 ];
+
+    // This feature, if supported and enabled,
+    // will cause the daemon to reset when the control client that sent this message disconnects.
+    optional public salias reset_on_close : bit_storage [ 11 ];
+}
+
+// If supported, it performs a "reset".
+// On MAS it removes hosts, routes and closes the tunnel. Notifications are NOT sent.
+message Reset(Request)
+{
+    defined type = 51;
+}
+
+// Load additional configuration parameters
+message LoadConfig(Request)
+{
+    defined type = 52;
+
+    // The configuration data.
+    // This should have the same format as the contents of ConfigCore config files.
+    // This will be loaded on top of any existing configuration.
+    required string config_data : 10;
+
+    // If true, errors while processing the config contents will be ignored.
+    public alias ignore_errors : bit_storage [ 8 ];
+
+    // If true, any defaults in ConfigCore will be restored FIRST, before loading the new config.
+    public alias restore_defaults_first : bit_storage [ 9 ];
+}
+
+// The result of loading new configuration parameters
+message LoadConfigResponse(Update)
+{
+    defined type = 53;
+
+    // The error message when processing the config contents.
+    // Not set if the config was loaded successfully.
+    optional string error_message: 10;
+}
+
+########################################################################################################################
+######################################################## LOGGING #######################################################
+########################################################################################################################
+
+// Carries a log message
+message LogMessage(Update)
+{
+    defined type = 70;
+
+    required Log.LogMessage log_message : 10; // The actual log message
+}
+
+// Queries for a list of log streams
+message GetLogList(Request)
+{
+    defined type = 71;
+
+    optional string name_pattern : 10; // The name/pattern of the log stream names to return
+}
+
+// Carries a list of available log streams
+message LogListResp(Update)
+{
+    defined type = 72;
+
+    // Describes a single binary log stream
+    struct LogDesc
+    {
+        required string name : 1; // The name of the log stream
+        required Log.LogType type : 2; // The type of the log stream
+    }
+
+    repeated string text_logs : 10; // The list of text log streams
+    repeated LogDesc bin_logs : 11; // The list of binary log streams
+}
+
+// Subscribe control client to a log stream
+message LogSubscribe(Request)
+{
+    defined type = 73;
+
+    required string name_pattern : 10; // The name/pattern of the log stream(s) to subscribe to
+
+    optional Log.LogLevel level : 11; // The requested log level
+}
+
+// Unsubscribe control client from a log stream
+message LogUnsubscribe(Request)
+{
+    defined type = 74;
+
+    required string name_pattern : 10; // The name/pattern of the log stream(s) to unsubscribe from
+}
+
+########################################################################################################################
+###################################################### DIAGNOSTICS #####################################################
+########################################################################################################################
+
+// Queries for a list of diagnostic values
+message GetDiagnostics(Request)
+{
+    defined type = 80;
+}
+
+// Carries a list of diagnostic values
+message DiagnosticsResponse(Update)
+{
+    defined type = 81;
+
+    repeated Log.Diagnostic diagnostics : 10; // The list of diagnostic values
+}
+
+}

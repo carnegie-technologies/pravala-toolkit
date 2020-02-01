@@ -1,0 +1,154 @@
+The kernel refers to each structure as a "vring" or virtio ring. There are two vrings, a TX vring and a RX vring.
+A vring structure itself is not a ring, but contains rings.
+
+"vhost-net", "kernel" and "system" are used interchangeably in this comment.
+
+These vrings are then attached to a "backing FD". This is the FD of the tunnel that vhost-net will use to
+send/receive packets. There are also 2 additional FDs - a "kick" FD and a "call" FD.
+
+The TX "kick" FD is used in TX by us to tell the system that there's something for it to TX (i.e. we write to the FD,
+the system reads from this FD). Similarly, the RX "kick" FD is used to tell the system that we have descriptors that
+the system can put packets into for us to read.
+
+The "call" FD is used in RX by the system to tell us that there's something on one of the "used" rings for us to
+process, (i.e. we read from this FD, the system writes to this FD). We also write to this FD to tell ourselves to
+try to read. We do not use a "call" FD in TX, and instead rely on calling cleanTx opportunistically.
+
+Both the "kick" and "call" FDs are eventfd() FDs.
+
+The TX vring is used to send data to the backing FD (i.e. equivalent of calling "write"), whereas the RX vring
+is used to receive data from the backing FD (i.e. equivalent of calling "read").
+
+"n" in the below memory layout is the same number, i.e. there is always the same number of elements in:
+- The array of descriptors
+- The "available" field in the ring of "available descriptor heads"
+- The "used" field in the ring of "used descriptor heads"
+
+"n" can be different between the TX vring and RX vring.
+
+Free running index:
+- Each ring has an number referred to in the kernel as the free-running "index".
+  This index can only be incremented and loops around when it overflows. It overflows at uint16 max, not "n".
+- This index is incremented every time something is added to the ring,
+  i.e. after "sending" the first packet, the TX avail ring's index is at 1, once the system actually
+  sends the packet, it will set the TX used ring's index to 1.
+- index % number of elements = actual (array) index in the ring
+- ( index - 1 ) % n = the index of the element that was last added to the available/used ring
+
+  Memory layout of a vring - there are 2 instances of this object, one is the TX vring, the other is the RX vring:
+{
+    // -------------- Array of descriptors
+    // We can read/write to fields in this array, but only if we "own" it - i.e. haven't offered it to the system,
+    // or the system has said it is done with it. The system will not write to any of the fields in this array.
+    //
+    // In the case of the RX ring, the system will store received packets (or parts of) to the memory addresses
+    // pointed to by elements in this array.
+    //
+    // Each element points to a memory address, has a length, and some other properties.
+    //
+    // A descriptor can also be chained with the next descriptor to provide a scatter-gather buffer by
+    // setting its properties.
+    //
+    struct descriptor descs[n];
+
+    // -------------- Ring of "available descriptor heads" - i.e. "available ring".
+    // We can read/write to fields in this ring, the system only reads from it.
+    //
+    // This ring is used by us to provide sets of descriptors to vhost-net.
+    // This is done by writing the index of the element in the array of descriptors that contains the first
+    // (or only) part of the packet to offer to vhost-net to the "available" field.
+    //
+    // For the RX ring, this means we are telling vhost-net where it can store data the system wants to send to us.
+    // For the TX ring, this means that we are telling vhost-net where it can read data from, i.e.
+    // where the packets we want to send to the system are.
+
+    // Flags for the available ring (not used by us)
+    uint16_t avail_flags;
+
+    // Free running index. ( index - 1 ) % n = last used position in the available array below. Set by us.
+    uint16_t avail_index;
+
+    // Each entry points to index of descs that is the start of a set of descriptors for a packet
+    uint16_t available[n];
+
+    // The vring_used_event() macro returns a writable reference to this value.
+    //
+    // When the system places an element in the used ring while used_index == this value, the system
+    // will write to the call FD (if present) for this vring to notify us that there's something to read.
+    uint16_t used_indexes;
+
+    // -------------- Padding to next page boundary
+    char padding[];
+
+    // -------------- Ring of "used descriptor heads" - i.e. "used ring"
+    // We can only read from fields in this ring, the system reads/writes to it.
+    //
+    // This ring is used by vhost-net to tell us when it is done with sets of descriptors.
+    // The system always consumes (uses) descriptors in the same order we provided them,
+    // i.e. it will not skip or re-order descriptors.
+
+    // Flags for the used ring (not used by us)
+    uint16_t used_flags;
+
+    // Free running index. ( index - 1 ) % n = last used position in the used array below. Set by sytem.
+    uint16_t used_index;
+
+    // Each element contains information about a used descriptor, this includes:
+    // - the descriptor index (this is always the same as the one we provided in the available ring)
+    // - in the RX ring, this contains the total number of bytes of the packet. This can be greater than
+    //   the total size of all descriptors provided for this packet; this means that the packet was truncated.
+    // - in the TX ring, this does not contain any extra information (it only contains the descriptor index).
+    //   When a descriptor appears on this ring, it means that the system has either transmitted or dropped the
+    //   entire packet at a lower level. The system will not transmit partial packets. The system will not transmit
+    //   packets that are too large, but will drop them and increment the interface drop counter and tell us that
+    //   it's done.
+    struct used_elem used[n];
+
+    // The vring_avail_event() macro returns a writable reference to this value, however we should
+    // not write to it!
+    //
+    // If we write something to the available ring while avail_index == this value, we need to write to the
+    // "kick" FD to tell the system to use it.
+    uint16_t avail_indexes;
+}
+
+It is OUR responsibility to ensure that we do not reuse indexes in the ring of "available descriptor heads"
+until the system has told us (via the ring of "used descriptor heads") that the system is done with it,
+and until we have handled the entry in the ring of "used descriptor heads". As noted in the memory layout above,
+we don't write to any part of the "used" wring, and the system won't write to any part of the "available" ring.
+
+
+Order of Operations:
+
+1. We set up entries in the table of descriptor pointing to some memory.
+2a. For the RX ring, when there are unused entries in the ring of "available descriptor heads", and available
+    descriptors, and we have free memory, we offer them to vhost-net so that it can receive some data.
+2b. For the TX ring, when there are unused entries in the ring of "available descriptor heads", and available
+    descriptors, and we have data to send, we offer them to vhost-net so that it can transmit it.
+3. To offer descriptors to vhost-net, we write the array index of the entry in the table of descriptors
+    to the next free element in the "available" field of the available ring, and increment the free running
+    "index" of the ring to tell the system that there's something available.
+4. We may need to write something to the "kick" FD to tell the kernel that there are descriptors for it to use when
+   avail_indexes == used_index. The kernel then knows it needs to transmit (kicking the TX FD), or that there are
+   descriptors available that it can use to receive (kicking the RX FD).
+5. At some point, we may get a read event (some data available to read) on the "call" FD to tell us that there's
+   something in the used ring. Alternatively, we can poll (i.e. keep checking the used ring's index, not by calling
+   poll/epoll/select/etc.), to check if there's something in the used ring.
+6. The kernel will increment the "index" on the ring of "used descriptor heads" once it is done with the
+   entry we wrote into the ring of "available descriptor heads".
+7. We then increment used_indexes in the available ring using the vring_used_event() macro, by the amount of
+   elements we processed (i.e. for RX, for every packet, not descriptor, that we read. For TX, for every packet,
+   not descriptor, that we have cleaned up), to tell the system to notify us when the next packet has been "used"
+   (i.e. for RX ring, a packet is available to read, for the TX ring, a packet has been sent).
+
+When the system adds an event to the used ring at the index that's the same as vring_used_event(), it will
+generate a event to us using the "call" FD (step 5 above). On some systems, it will ignore this value and
+always generate events every time it adds something to the used ring.
+
+We are supposed to be able to use the value returned by the vring_avail_event() macro to limit the number of events
+we need to generate to the system (i.e. when we should "kick" when we want to TX). However, the system always
+returns free-running "index"+1, which means it wants us to generate an event for the next packet. As such, to
+limit the number of "write" syscalls we need to do to the "kick" FD, we do not use vring_avail_event() to determine
+when we should "kick" the system. Instead, we do it either when the TX ring is full or delay it until at end of
+loop (whichever occurs first) - so that we can potentially get more packets to the system for each "write" syscall.
+

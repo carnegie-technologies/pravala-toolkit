@@ -1,0 +1,88 @@
+diff --git a/src/core/pbuf.c b/src/core/pbuf.c
+index 814127f8..a4398aee 100644
+--- a/src/core/pbuf.c
++++ b/src/core/pbuf.c
+@@ -183,6 +183,7 @@ pbuf_init_alloced_pbuf(struct pbuf *p, void* payload, u16_t tot_len, u16_t len,
+   p->flags = flags;
+   p->ref = 1;
+   p->if_idx = NETIF_NO_INDEX;
++  p->tag = 0;
+ }
+ 
+ /**
+diff --git a/src/core/tcp_out.c b/src/core/tcp_out.c
+index e5216787..f4ccaf5d 100644
+--- a/src/core/tcp_out.c
++++ b/src/core/tcp_out.c
+@@ -1075,6 +1075,7 @@ tcp_send_empty_ack(struct tcp_pcb *pcb)
+     }
+ #endif
+     NETIF_SET_HINTS(netif, &(pcb->netif_hints));
++    p->tag = pcb->tag;
+     err = ip_output_if(p, &pcb->local_ip, &pcb->remote_ip,
+       pcb->ttl, pcb->tos, IP_PROTO_TCP, netif);
+     NETIF_RESET_HINTS(netif);
+@@ -1452,6 +1453,7 @@ tcp_output_segment(struct tcp_seg *seg, struct tcp_pcb *pcb, struct netif *netif
+   TCP_STATS_INC(tcp.xmit);
+ 
+   NETIF_SET_HINTS(netif, &(pcb->netif_hints));
++  seg->p->tag = pcb->tag;
+   err = ip_output_if(seg->p, &pcb->local_ip, &pcb->remote_ip, pcb->ttl,
+     pcb->tos, IP_PROTO_TCP, netif);
+   NETIF_RESET_HINTS(netif);
+@@ -1754,6 +1756,7 @@ tcp_keepalive(struct tcp_pcb *pcb)
+ 
+     /* Send output to IP */
+     NETIF_SET_HINTS(netif, &(pcb->netif_hints));
++    p->tag = pcb->tag;
+     err = ip_output_if(p, &pcb->local_ip, &pcb->remote_ip, pcb->ttl, 0, IP_PROTO_TCP, netif);
+     NETIF_RESET_HINTS(netif);
+   }
+@@ -2011,6 +2014,7 @@ tcp_zero_window_probe(struct tcp_pcb *pcb)
+ 
+     /* Send output to IP */
+     NETIF_SET_HINTS(netif, &(pcb->netif_hints));
++    p->tag = pcb->tag;
+     err = ip_output_if(p, &pcb->local_ip, &pcb->remote_ip, pcb->ttl,
+       0, IP_PROTO_TCP, netif);
+     NETIF_RESET_HINTS(netif);
+diff --git a/src/core/udp.c b/src/core/udp.c
+index d2d80d37..695a0441 100644
+--- a/src/core/udp.c
++++ b/src/core/udp.c
+@@ -845,6 +845,7 @@ udp_sendto_if_src_chksum(struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *d
+   LWIP_DEBUGF(UDP_DEBUG, ("udp_send: ip_output_if (,,,,0x%02"X16_F",)\n", (u16_t)ip_proto));
+   /* output to IP */
+   NETIF_SET_HINTS(netif, &(pcb->netif_hints));
++  q->tag = pcb->tag;
+   err = ip_output_if_src(q, src_ip, dst_ip, ttl, pcb->tos, ip_proto, netif);
+   NETIF_RESET_HINTS(netif);
+ 
+diff --git a/src/include/lwip/ip.h b/src/include/lwip/ip.h
+index 653c3b2f..4740e775 100644
+--- a/src/include/lwip/ip.h
++++ b/src/include/lwip/ip.h
+@@ -86,7 +86,8 @@ extern "C" {
+   /* Time To Live */                       \
+   u8_t ttl                                 \
+   /* link layer address resolution hint */ \
+-  IP_PCB_NETIFHINT
++  IP_PCB_NETIFHINT \
++  ;s32_t tag
+ 
+ struct ip_pcb {
+   /* Common members of all PCB types */
+diff --git a/src/include/lwip/pbuf.h b/src/include/lwip/pbuf.h
+index 82902a4e..864225b6 100644
+--- a/src/include/lwip/pbuf.h
++++ b/src/include/lwip/pbuf.h
+@@ -219,6 +219,9 @@ struct pbuf {
+ 
+   /** For incoming packets, this contains the input netif's index */
+   u8_t if_idx;
++
++  /** socket tag */
++  s32_t tag;
+ };
+ 
+ 

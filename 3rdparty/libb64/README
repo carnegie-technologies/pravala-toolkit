@@ -1,0 +1,16 @@
+From: http://libb64.sourceforge.net/
+Version: 1.2.1
+License: public domain
+
+Patch: newline.patch
+
+Base64 is commonly used as a text encoding for binary data in MIME encapsulated formats,
+which according to RFC 2646 recommends that lines not be longer than 72 characters and
+that they should end with a newline.
+
+When encoding base64 for HTTP, newlines are undesirable, and we're not encoding for MIME,
+so we don't have a 72 character limit.
+
+This patch adds a parameter to enable/disable the behaviour of adding a newline every 72
+characters and at end of line.
+

@@ -1,0 +1,8 @@
+#
+# Can be used to parse both client and server specific definitions
+# The 'null' language generator can be used to skip generating any output
+# (and just analyze correctness of all .proto files, uniqueness of definitions, etc.
+#
+
+import "client.proto";
+import "server.proto";

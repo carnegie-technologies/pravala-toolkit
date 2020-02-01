@@ -1,0 +1,135 @@
+#define __SYSCALL_LL_E(x) \
+((union { long long ll; long l[2]; }){ .ll = x }).l[0], \
+((union { long long ll; long l[2]; }){ .ll = x }).l[1]
+#define __SYSCALL_LL_O(x) 0, __SYSCALL_LL_E((x))
+
+long (__syscall)(long, ...);
+
+#define SYSCALL_RLIM_INFINITY (-1UL/2)
+
+#ifndef __clang__
+
+static inline long __syscall0(long n)
+{
+	register long r7 __asm__("$7");
+	register long r2 __asm__("$2");
+	__asm__ __volatile__ (
+		"addu $2,$0,%2 ; syscall"
+		: "=&r"(r2), "=r"(r7) : "ir"(n), "0"(r2), "1"(r7)
+		: "$1", "$3", "$8", "$9", "$10", "$11", "$12", "$13",
+		  "$14", "$15", "$24", "$25", "hi", "lo", "memory");
+	return r7 ? -r2 : r2;
+}
+
+static inline long __syscall1(long n, long a)
+{
+	register long r4 __asm__("$4") = a;
+	register long r7 __asm__("$7");
+	register long r2 __asm__("$2");
+	__asm__ __volatile__ (
+		"addu $2,$0,%2 ; syscall"
+		: "=&r"(r2), "=r"(r7) : "ir"(n), "0"(r2), "1"(r7),
+		  "r"(r4)
+		: "$1", "$3", "$8", "$9", "$10", "$11", "$12", "$13",
+		  "$14", "$15", "$24", "$25", "hi", "lo", "memory");
+	return r7 ? -r2 : r2;
+}
+
+static inline long __syscall2(long n, long a, long b)
+{
+	register long r4 __asm__("$4") = a;
+	register long r5 __asm__("$5") = b;
+	register long r7 __asm__("$7");
+	register long r2 __asm__("$2");
+	__asm__ __volatile__ (
+		"addu $2,$0,%2 ; syscall"
+		: "=&r"(r2), "=r"(r7) : "ir"(n), "0"(r2), "1"(r7),
+		  "r"(r4), "r"(r5)
+		: "$1", "$3", "$8", "$9", "$10", "$11", "$12", "$13",
+		  "$14", "$15", "$24", "$25", "hi", "lo", "memory");
+	if (r7) return -r2;
+	return r2;
+}
+
+static inline long __syscall3(long n, long a, long b, long c)
+{
+	register long r4 __asm__("$4") = a;
+	register long r5 __asm__("$5") = b;
+	register long r6 __asm__("$6") = c;
+	register long r7 __asm__("$7");
+	register long r2 __asm__("$2");
+	__asm__ __volatile__ (
+		"addu $2,$0,%2 ; syscall"
+		: "=&r"(r2), "=r"(r7) : "ir"(n), "0"(r2), "1"(r7),
+		  "r"(r4), "r"(r5), "r"(r6)
+		: "$1", "$3", "$8", "$9", "$10", "$11", "$12", "$13",
+		  "$14", "$15", "$24", "$25", "hi", "lo", "memory");
+	if (r7) return -r2;
+	return r2;
+}
+
+static inline long __syscall4(long n, long a, long b, long c, long d)
+{
+	register long r4 __asm__("$4") = a;
+	register long r5 __asm__("$5") = b;
+	register long r6 __asm__("$6") = c;
+	register long r7 __asm__("$7") = d;
+	register long r2 __asm__("$2");
+	__asm__ __volatile__ (
+		"addu $2,$0,%2 ; syscall"
+		: "=&r"(r2), "=r"(r7) : "ir"(n), "0"(r2), "1"(r7),
+		  "r"(r4), "r"(r5), "r"(r6)
+		: "$1", "$3", "$8", "$9", "$10", "$11", "$12", "$13",
+		  "$14", "$15", "$24", "$25", "hi", "lo", "memory");
+	if (r7) return -r2;
+	return r2;
+}
+
+#else
+
+static inline long __syscall0(long n)
+{
+	return (__syscall)(n);
+}
+
+static inline long __syscall1(long n, long a)
+{
+	return (__syscall)(n, a);
+}
+
+static inline long __syscall2(long n, long a, long b)
+{
+	long r2 = (__syscall)(n, a, b);
+	if (r2 > -4096UL) return r2;
+	return r2;
+}
+
+static inline long __syscall3(long n, long a, long b, long c)
+{
+	long r2 = (__syscall)(n, a, b, c);
+	if (r2 > -4096UL) return r2;
+	return r2;
+}
+
+static inline long __syscall4(long n, long a, long b, long c, long d)
+{
+	long r2 = (__syscall)(n, a, b, c, d);
+	if (r2 > -4096UL) return r2;
+	return r2;
+}
+
+#endif
+
+static inline long __syscall5(long n, long a, long b, long c, long d, long e)
+{
+	long r2 = (__syscall)(n, a, b, c, d, e);
+	if (r2 > -4096UL) return r2;
+	return r2;
+}
+
+static inline long __syscall6(long n, long a, long b, long c, long d, long e, long f)
+{
+	long r2 = (__syscall)(n, a, b, c, d, e, f);
+	if (r2 > -4096UL) return r2;
+	return r2;
+}

@@ -1,0 +1,29 @@
+lwIP doesn't come with any Makefiles or other build scripts.
+
+This folder contains everything needed to build lwIP,
+adapted from some samples in lwip-contrib, an external repo.
+
+Files and folders:
+
+lwip/           - The lwIP source tree.
+
+lwipopts.h      - Main lwIP configuration header.
+                  This is copied to lwip/src/include/lwipopts.h
+
+                  In our configuration we directly use the low-level callback-based API,
+                  which doesn't need any threads or synchronization.
+
+                  See: http://lwip.wikia.com/wiki/Application_API_layers
+                  and: lwip/doc/rawapi.txt
+
+arch_cc.h       - Defines basic types and macros used by lwIP.
+                  This is copied to lwip/src/include/arch/cc.h
+
+sys_arch.c      - Implements threads and synchronization primitives.
+                  In our configuration, this only needs to implement sys_now()
+
+CMakeLists.txt  - Builds just lwip/src/core and lwip/src/api
+
+lwip-tags.patch - Patch to add socket tags to lwIP's TCP stack.
+                  Generated using the following command in the lwip/ source folder:
+                  git diff --no-prefix --ignore-submodules > ../lwip-tags.patch

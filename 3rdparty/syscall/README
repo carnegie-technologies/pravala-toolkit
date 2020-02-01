@@ -1,0 +1,4 @@
+Wrappers to some syscalls
+
+Code adapted from musl v1.1.4: http://www.musl-libc.org/
+

@@ -1,0 +1,170 @@
+
+# Enum with all the error codes used in various places in the system
+
+enum ErrorCode // Contains all error codes
+{
+  # General error codes
+
+  Success = 0; // Operation was successful (no error)
+
+  ForkParent = 1; // A status code received by the parent upon successfully calling fork()
+  ForkChild = 2; // A status code received by the child upon successfully calling fork()
+
+  // Protocol "warning". It means that the encoding is correct, but the value cannot be used.
+  // This status code will be used if there were any fields whose IDs are not known,
+  // or when some of the enum codes received cannot be used by the specific enums
+  // (and the enum was set to its default value).
+  // If it is returned by the message's deserializer, it means that the message validates properly despite the problems.
+  ProtocolWarning = 10;
+
+  // The 'connect' returned an error because the socket is nonblocking, but the connection attempt has been started
+  ConnectInProgress = 11;
+
+  ResponseSent = 30; // Means that the response was already generated, and the automatic response is not required.
+  ResponsePending = 31; // The response will be sent later, the automatic response is not required.
+
+  NoNameProvided = 50; // The path/name was not provided
+
+  DatabaseHasDataRow = 60; // The database operation succeeded and there is a row of data available.
+
+  Unknown = -1; // Unknown error
+  NotImplemented = -2; // Feature is not implemented
+  Unsupported = -3; // Feature is not supported
+  InvalidParameter = -4; // Invalid operation argument
+  NotInitialized = -5; // The object is not initialized yet
+  AlreadyInitialized = -6; // The object has already been initialized
+  WrongState = -7; // The object is in the wrong state
+  NotFound = -8; // The value cannot be found
+  AlreadyExists = -9; // The value (route, parameter) already exists
+  NothingToDo = -10; // There is nothing to do (or it already has been done)
+  NotAvailable = -11; // Not available
+  ConfigError = -12; // The internal object's configuration is invalid
+  NoOwner = -13; // The owner is not set
+  InternalError = -14; // There has been some internal error (this should NOT happen)
+  MemoryError = -15; // Memory could not be allocated
+  CouldNotInitialize = -16; // Generic initialization error
+  InvalidIndex = -17; // Invalid index
+  AccessDenied = -18; // Access denied due to lack of permissions
+
+  # Syscall errors:
+
+  SoftFail = -25; // A temporary error (like EAGAIN)
+
+  SyscallError = -29; // Generic syscall error
+
+  OpenFailed = -30; // open() failed
+  ReadFailed = -31; // read() failed
+  WriteFailed = -32; // write()/send() or similar failed
+
+  ChdirFailed = -34; // chdir() failed
+  MkdirFailed = -35; // mkdir() failed
+  RenameFailed = -36; // rename() failed
+  SystemFailed = -37; // system() failed
+  ForkFailed = -38; // fork() failed
+  KillFailed = -39; // kill() failed
+  PipeFailed = -40; // pipe() failed
+  SetSidFailed = -41; // setsid() failed
+  FcntlFailed = -42; // fcntl() failed
+  IoctlFailed = -43; // ioctl() failed
+  SocketFailed = -44; // socket() failed
+  SetSockOptFailed = -45; // setsockopt() failed
+  GetSockOptFailed = -46; // getsockopt() failed
+  BindFailed = -47; // bind() failed
+  AddrInUse = -48; // bind() failed with EADDRINUSE error
+  ListenFailed = -49; // listen() failed
+  ConnectFailed = -50; // connect() failed
+  ThreadCreateFailed = -51; // pthread_create() or similar failed
+  SysctlFailed = -52; // sysctl() failed
+
+  // The socket is already connected; Also sendto() over connected socket on Apple.
+  AlreadyConnected = -53;
+
+  # I/O and protocol-related errors:
+
+  TooMuchData = -70; // Too much data to fit in the channel/storage/etc.
+  EmptyRead = -71; // Empty read (EOF)
+  EmptyWrite = -72; // Empty write (trying to send no data)
+  IncompleteWrite = -73; // Wrote less data than requested
+  IncompleteData = -74; // Data is incomplete, need more data to continue
+  Closed = -75; // The descriptor has been closed
+
+  # Network-specific I/O errors:
+
+  Timeout = -90; // Network timeout
+  NotConnected = -91; // The socket/link is not connected
+  InvalidSocketType = -92; // The socket type has invalid type for this operation
+  Disconnected = -93; // Connection has been terminated.
+
+  AddrError = -94; // Could not set the address
+  MtuError = -95; // Could not set the MTU
+  RoutingError = -96; // Could not set the routing
+  InterfaceError = -97; // Other interface error (setting it up)
+  RemoteDisconnectRequest = -98; // Remote side requested the link to disconnect
+
+  # Protocol errors:
+
+  ProtocolError = -110; // Protocol error - data received does not make sense
+  InvalidData = -112; // Received data is encoded properly, but the values are incorrect
+  InvalidDataSize = -113; // Received data size has incorrect (different than expected) size
+  TooBigValue = -114; // Value cannot be processed because it is too big
+
+  # Protocol restriction errors:
+
+  RequiredFieldNotSet = -130; // The data field specified as 'required' by the protocol has not been set
+  DefinedValueMismatch = -131; // The value defined by the protocol to have certain value has different value
+  FieldValueOutOfRange = -132; // The value is out of allowed (by the protocol) range
+  StringLengthOutOfRange = -133; // The string length is out of allowed (by the protocol) range
+  ListSizeOutOfRange = -134; // The list size is out of allowed (by the protocol) range
+
+  # General data errors:
+
+  TooShortName = -150; // The name used is too short
+  TooLongName = -151; // The name used is too long
+  InvalidAddress = -152; // The address is invalid
+  InvalidPort = -153; // The port is invalid
+  SyntaxError = -154; // There was a syntax error
+  TooManyValues = -155; // Too many values
+
+  # Netlink errors:
+
+  ErrorResponse = -160; // Netlink returned error
+  IncompleteMultipart = -161; // Incomplete multipart data received, more data needed
+  MessageCreateFailed = -162; // Could not create a proper Netlink message
+  NoNetlinkIfaceIndex = -163; // There is no iface index from netlink
+
+  # System-related errors:
+
+  CommandNotFound = -180; // Command (program, binary) could not be located
+
+  # General network errors:
+
+  RouteLocalAddr = -200; // Requested route to local address
+  NoRoutesModified = -201; // The routes were not modified (not really an error)
+
+  # SSL errors:
+
+  SslNeedRead = -220; // SSL needs a read operation to continue
+  SslNeedWrite = -221; // SSL needs a write operation to continue
+  SslBadCipherList = -222; // The SSL cipher list is invalid
+  SslError = -223; // SSL returned SSL_ERROR_SSL
+  SslSyscallError = -224; // SSL returned SSL_ERROR_SYSCALL
+  SslUnknown = -225; // Other SSL-related error
+
+  # SSL key-related errors:
+  PkiBadKey = -230; // The SSL key is invalid
+  PkiBadCert = -231; // The SSL certificate is invalid
+  PkiBadCertDate = -232; // The SSL certificate is expired or not valid yet
+
+  # Client-Server protocol errors:
+  ClientNotFound = -240; // The client is not known
+  ClientRejected = -241; // The client is known, but is not allowed to connect
+  TooManyClients = -242; // There is too many clients
+  ServerError = -243; // Some other server error
+  InvalidSessionToken = -244; // Session token was invalid or just changed
+  InvalidProtoVersion = -245; // Invalid protocol version
+
+  # Misc errors:
+  DatabaseError = -300; // Internal database error
+
+  InvalidError= -9999 [ default ]; // Default, invalid error code
+}

@@ -1,0 +1,64 @@
+
+import org.apache.tools.ant.taskdefs.condition.Os
+
+ext {
+    /**
+     * Clean up auto-generated protocol files
+     */
+    task cleanProto(type: Delete) {
+        delete file ( 'src/main/java/com/pravala/protocol/auto' )
+
+        // Ensure this task is always run
+        outputs.upToDateWhen { false }
+    }
+
+    /**
+     * Set up protocol generation tasks
+     *
+     * If this was called from an Android project, it will build with the project's "preBuild" task,
+     * otherwise the caller should add something to get the "buildProto" task to build.
+     *
+     * @param protoFiles List of protocol files to generate from
+     */
+    setupProtoTasks = { protoFiles ->
+        assert protoFiles
+
+        def protoGenBinary = null
+        if ( Os.isFamily ( Os.FAMILY_WINDOWS ) )
+        {
+            protoGenBinary = 'ProtoGen.exe'
+        }
+        else if ( Os.isFamily ( Os.FAMILY_MAC ) )
+        {
+            protoGenBinary = 'ProtoGen'
+        }
+        else if ( System.properties['os.name'] == 'Linux' )
+        {
+            protoGenBinary = 'ProtoGen'
+        }
+
+        assert protoGenBinary : 'Cannot determine ProtoGen binary for this OS'
+        // assert protoGenBinary.exists() : 'ProtoGen binary not found at: ' + protoGenBinary
+
+        def outputDir = file ( 'src/main/java' )
+
+            tasks.create(name: 'buildProto', type: Exec, dependsOn: cleanProto) {
+                workingDir '../../proto'
+
+                commandLine protoGenBinary, 'java', '-o', outputDir, '--id-scope=branch', '--namespace-prefix=com.pravala.protocol.auto'
+                args protoFiles
+
+                // Ensure this task is always run
+                outputs.upToDateWhen { false }
+            }
+
+        project.afterEvaluate { ->
+            // If the Android project "preBuild" task exists, then build the protocol with that task
+            tasks.matching ( { task -> task.name == 'preBuild' } ).each() { task ->
+                task.dependsOn buildProto
+            }
+
+            clean.dependsOn cleanProto
+        }
+    }
+}

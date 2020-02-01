@@ -1,0 +1,13 @@
+This directory contains source code from the wpa_supplicant project.
+
+Retrieved from http://hostap.epitest.fi/wpa_supplicant/
+Current version: wpa_supplicant-2.0
+
+wpa_supplicant contains 3 high-level directories:
+ - patches
+ - src
+ - wpa_supplicant
+
+The src/ directory contains many subdirectories - we require only 2 - utils and common
+We copy these directories to here and things build just fine.
+

@@ -1,0 +1,18 @@
+
+config_file = ./test.conf
+
+dtls_test.server.cert_path = certs/server.crt
+dtls_test.server.key_path = certs/server.crt
+
+dtls_test.server.cipher_list =
+dtls_test.server.trusted_cas_file =
+dtls_test.server.trusted_cas_dir =
+dtls_test.server.allowed_cas_file =
+
+dtls_test.client.cert_path = certs/client.crt
+dtls_test.client.key_path = certs/client.crt
+
+dtls_test.client.cipher_list =
+dtls_test.client.trusted_cas_file =
+dtls_test.client.trusted_cas_dir =
+dtls_test.client.allowed_cas_file =

@@ -1,0 +1,89 @@
+
+# Logging-related messages
+
+import "error.proto";
+
+// Log-related messages
+namespace Log
+{
+
+// Log levels used by text logs
+enum LogLevel
+{
+    Invalid     = -1 [ default ]; // Invalid level.
+    Debug4      =  11; // 'debug 4' log level - the most verbose one
+    Debug3      =  12; // 'debug 3' log level
+    Debug2      =  13; // 'debug 2' log level
+    Debug       =  14; // 'debug (1)' log level
+    Info        =  31; // The default log level - 'info'
+    Warning     =  41; // 'warning' log level
+    Error       =  51; // 'error' log level
+    FatalError  =  61; // 'fatal error' log level
+}
+
+enum LogType
+{
+    InvalidType       = 0 [ default ]; // The default, invalid value
+    TextMessage       = 1; // The 'regular' text log message (it uses levels)
+
+    DiagnosticMessage = 3; // 'DiagnosticMessage' log message
+}
+
+// To be inherited by ALL log messages
+message LogMessage
+{
+    // We use this for determining log message type
+    protected unique required LogType type : 1;
+
+    // The name of the log stream
+    required string name : 2;
+
+    // The timestamp.
+    // Current code uses UTC epoch time in milliseconds, but older programs may store number of seconds instead.
+    required uint64 time : 3;
+
+    // Bit storage
+    protected optional uint32 bit_storage : 4;
+}
+
+message TextMessage(LogMessage)
+{
+    defined type = TextMessage;
+
+    // The log level of this message
+    required LogLevel level : 10;
+
+    // The name of the function
+    required string func_name : 11;
+
+    // The optional error code
+    optional ErrorCode error_code : 12;
+
+    # If we need those:
+    # // The name of the file
+    # required string file_name : 15;
+    #
+    # // Line number
+    # required uint32 line_number : 16;
+
+    // The actual log message
+    required string content : 20;
+}
+
+// Represents a piece of diagnostic information
+struct Diagnostic
+{
+    required string key       : 1; // The diagnostic key
+    optional string value     : 2; // The diagnostic message text; If not set it means that that key has been removed.
+    required uint64 timestamp : 3; // The diagnostic last update time (seconds since epoch)
+}
+
+// LogMessage that carries diagnostic information
+message DiagnosticMessage(LogMessage)
+{
+    defined type = DiagnosticMessage;
+
+    required Diagnostic diagnostic : 10; // The diagnostic information
+}
+
+}

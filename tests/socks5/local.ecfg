@@ -1,0 +1,3 @@
+
+log.0 = STDERR : *
+log.default_level = INFO

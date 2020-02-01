@@ -1,0 +1,15 @@
+
+import "common.proto";
+
+namespace Test {
+namespace Other {
+namespace Ctrl {
+
+message ServerMsg(PubSubResp) {
+  alias server_msg : ctrl_config[13];
+  defined ctrl_type_id = 6;
+}
+
+}
+}
+}

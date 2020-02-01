@@ -1,0 +1,182 @@
+
+namespace Test {
+
+namespace Other {
+// General namespace :)
+namespace General {
+ enum TestErrorCode { // Contains error codes
+  // Operation was successful
+  Success = 0;
+  InvalidWhatever = - 1; // Something went wrong...
+  Unknown = -9999 [ default ];
+ }
+}
+
+namespace Ctrl { // Control messages
+
+struct Abc {
+  required uint16 abc : 1;
+}
+
+message CtrlMessage {
+  protected unique required uint16 ctrl_type_id: 2;
+  required uint16 ctrl_resp_mod_id : 3;
+
+  protected optional uint32 ctrl_config : 4;
+  protected alias is_response : ctrl_config[0];
+  alias is_remote : ctrl_config[1];
+  protected alias is_pub_sub : ctrl_config[2];
+  alias is_unreliable : ctrl_config[3];
+  alias something : ctrl_config[6-12];
+
+  optional uint8 ctrl_extra : 5;
+
+  private optional uint8 abc : 120;
+
+  protected alias some_bit : abc[7];
+}
+
+message CtrlReq(CtrlMessage) {
+  defined is_response = false;
+
+  # Some alias to bit 13 of ctrl_config
+  protected alias foo_alias : ctrl_config[13];
+}
+
+message CtrlResp(CtrlMessage) {
+  optional General.TestErrorCode error_code : 6;
+  defined is_response = true;
+  alias xyz : ctrl_config[14];
+
+  # Alias with the same name as in CtrlReq, but to a different bit of ctrl_config
+  protected alias foo_alias : ctrl_config[15];
+}
+
+message PubSubReq(CtrlReq) {
+  required uint8 pub_sub_type : 8;
+  optional uint8 pub_sub_operator : 7;
+
+  defined is_pub_sub = true;
+
+  # We define the foo_alias from CtrlReq
+  defined foo_alias = true;
+}
+
+message PubSubResp(CtrlResp) {
+  defined is_pub_sub as_in PubSubReq;
+
+  # We define the foo_alias from CtrlResp to the same value as PubSubReq defines for foo_aliast from CtrlReq
+  defined foo_alias as_in PubSubReq;
+}
+
+message IfaceStatusInfoReq(PubSubReq) {
+  defined ctrl_type_id = 123;
+}
+
+message IfaceStatusInfoResp(PubSubResp) {
+  defined ctrl_type_id as_in IfaceStatusInfoReq;
+}
+
+} // namespace Ctrl
+
+
+namespace Sandbox
+{
+
+message Test(Ctrl.CtrlMessage) {
+
+}
+
+
+// Comment!
+# This is a comment
+// This is a comment as well!
+
+namespace Xyzz {
+
+enum MyCodes
+{
+ CODE_1 = 1 [ default ];
+ CODE_2 = 2;
+}
+
+struct FuncErr
+{
+  required MyCodes errCode : 1; // Error code
+}
+
+}
+
+enum xyz
+{
+abc = 2 [ default ];
+def = 3;
+}
+
+// This is a Result of some operation.
+// And has a very long comment!
+struct Result {
+#  required uint16 type_id : 0;
+#  required uint16 length : 1;
+  required string url : 2; // Comment A
+  optional string title : 3; // Comment B
+  repeated string snippets : 4; // Comment C
+
+  optional uint32 config : 5;
+  alias is_remote : config[0];
+  alias is_pub_sub : config[1-3];
+  alias is_unreliable : config[4];
+
+  // This is an enum!
+  enum SomeType
+  {
+    ONE = 1 [ default ];
+    TWO = 2;
+    THREE = 3;
+  }
+
+  struct NestedRes
+  {
+   optional uint32 nestedVal : 1;
+   required uint8 bam : 2;
+   required int16 bing : 3;
+   # optional Result xyz : 44;
+   optional SomeType x : 111;
+  }
+
+  struct NA
+  {
+    struct NB
+    {
+      optional uint8 x :1;
+    }
+  }
+
+  struct NC
+  {
+   struct ND
+   {
+     optional NA.NB y : 5;
+   }
+  }
+
+  required SomeType someType : 13;
+  repeated SomeType someTypeRep : 133;
+  optional Xyzz.MyCodes aaa : 256;
+  optional NestedRes nRes : 111;
+}
+
+struct MyResult(Result) {
+  optional string my_option : 51234;
+  optional string title2 : 224;
+}
+
+struct Foo {
+ required Result.NestedRes x : 123;
+}
+
+}
+
+}
+
+}

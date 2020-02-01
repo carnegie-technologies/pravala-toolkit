@@ -1,0 +1,13 @@
+apply plugin: 'com.android.library'
+
+apply from: rootProject.file ( 'scripts/common_android.gradle' )
+apply from: rootProject.file ( 'scripts/proto.gradle' )
+
+setupProtoTasks(['error.proto', 'network.proto'])
+
+android {
+    defaultConfig {
+        versionCode 1
+        versionName '1.0'
+    }
+}

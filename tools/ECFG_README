@@ -1,0 +1,134 @@
+
+                     ECFG = Embedded ConFiGuration
+
+
+ECFG Generator
+==============
+
+ECFG generator (in ecfgGen directory) is used for generating a configuration entries to be embedded inside
+product binaries (so the actual executables, not the libraries).
+
+Usage
+=====
+
+EcfgGen -p product_name -d project_directory -i input_file.ecfg -o output_file
+        [-u user_name] [-h hostname] [-b build_type] [-r revision_suffix] [-t tag_1] [-t tag_2] ...
+
+ product_name Is the name of the product, it is used as value for 'build_info.product' option.
+               The product could be 'ACE Client', or 'MAS Server', or any other name,
+
+ project_directory The root directory of the project. It is usually the directory where the main CMakeLists.txt file
+                    is. It is used as a root for the search of .ecfg files.
+
+ input_file.ecfg Is the path to the input ECFG file to use for generating the ECFG content.
+                  It usually should be specific product's 'local.ecfg' file.
+
+ output_file The path to the output file. The ECFG content is generated in that file.
+
+ user_name Is the value to be placed in 'build_info.build_user' option.
+
+ hostname Is the value to be placed in 'build_info.build_host' option.
+
+ build_type Is the value to be placed in 'build_info.build_type' option
+
+ revision_suffix Is the value used as a revision suffix to be placed in 'build_info.src_rev' option.
+                  The revision is read from GIT and suffixed by this string.
+
+ tag Is a tag (one of the tags) to be used while interpreting ECFG files. There can be several tags provided
+      (by using '-t tag' several times). The lines in ECFG files that start with '@tag' will be interpreted only
+      if the 'tag' used is one of the tags provided in the command line.
+
+
+Description
+===========
+
+ECFG Generator, when run, will scan the project's directory (and recursively all subdirectories) looking for
+files with 'ecfg' extension. Every file is added to the list of available files. The file 'name.ecfg'
+is added to a mapping 'name:/full/path/name.ecfg'. Every 'name' can appear only once, even if it is used in
+different directories. The only exception is the special file name 'local.ecfg'. These files should be used
+for per-product configuration, and are ignored during directory scan.
+
+Then, the generator will read provided path to the input file. This file is read and interpreted (possibly
+by interpreting imported files as well). After the process is done, the output file is created,
+and the ECFG data is placed in it. That file should be somehow added to the list of source files for the product,
+either by using 'include' in the source file, adding it in cmake, etc. If it is not added, the linking
+error will occur ('const char * PRAV_ECFG_OPTION_STRING', used by the libConfig/GlobalConfig class, not found).
+
+The output file contains the string, that will be read when the GlobalConfig is initialized, and used as
+the 'default options' file, used when there is no actual configuration file found, or when some of the options
+are not set.
+
+ECFG File Format
+================
+
+The ECFG file format is somewhat similar to config file format used by Properties class.
+It contains option names and values, in the following format:
+
+  option_name = option_value
+
+option_value can include any characters, including '='. Only the first '=' is treated as a separator.
+
+Also, lines starting with '#' are treated as comments.
+
+The ECFG format has some extensions. The line in the following format:
+
+  {name}
+
+is used to import the content of some other ECFG file. The 'name' is the filename of the ECFG file that should
+be interpreted (without the '.ecfg' part). This file must exist somewhere below the project root directory.
+The name cannot be 'local', since those files are ignored during the scan. Because the names of files have to be
+unique, each product would have to use a different name. Thanks to the fact that 'local.ecfg' is ignored,
+each product can use the same name to store its ECFG configuration.
+
+Once the line with the import ( {name} ) is found, the interpretation of the current file is interrupted, and the
+imported file is interpreted (possibly recursively). Once it's over, the current file continues to interpret.
+
+Whenever an option is defined multiple times in the ECFG files, the last encountered version is used.
+
+Another extension of the format is used for dynamic configuration selection, based on the build process.
+When we use '-t' option, we can pass several tags to the ECFG generator. They could describe the platform for which we
+are building the product, or the compilation mode or options (android, linux, release, debug, breakpad, whatever).
+
+Inside ECFG files, each line can be prefixed (possibly multiple times) with a 'tag selection' expression:
+
+  @tag_name
+
+This line will only be interpreted when that 'tag_name' was on the list of tags passed to the generator in the
+command line. For example, to use a some option value in all binaries, and use a different value only on android
+in the release mode we could do:
+
+some.option = typical value
+
+@android @release some.option = special value
+
+This syntax can also be used for importing files:
+
+@debug {debug}
+@release {something_else}
+
+
+The last extension is prefixing option names with '!' character. Whenever an option name starts with '!'
+it means, that that option is 'forced'. So 'name_a = value a' assigns the value to option 'name_a',
+and '!name_b = value b' assigns 'value b' to option 'name_b', and also marks this option as 'forced'.
+This means it cannot be overridden by other ECFG files, or the configuration read from the config file by
+the program once it's running. If another ECFG file tries to override such option, the generator returns an error.
+When the config file uses that option, the warning is generated, and the value read from that file is ignored
+- the value stored in the ECFG is used instead.
+
+The only exception is the 'config_file' option. It can be specified in program's command line, or even used
+in the source code, to force the configuration to be read from a different config file. So even when that
+option is 'forced', it can sometimes be overridden.
+
+Typically some options severely affecting the program's behaviour or it's nature are 'forced'. For example
+the 'mas.host.role' option (which decides whether the MAS program is a server or a client), or any
+build-related information - like product name, build date or source revision.
+
+ECFG Inspector
+==============
+
+There is a special tool (in ecfgInspect directory), that can be used for inspecting ECFG data in existing binaries.
+When run, it will look for ECFG configuration tags, and print all the configuration options
+embedded in that binary (if any are found). This should display the product's name, source revision, some
+other build data, as well as all the defaults used by that program - without actually having to run it
+(so it's possible to inspect binaries compiled for completely different architectures)
+

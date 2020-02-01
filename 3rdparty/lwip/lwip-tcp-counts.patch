@@ -1,0 +1,134 @@
+diff --git a/src/core/tcp_in.c b/src/core/tcp_in.c
+index 3f5c1e11..f925beed 100644
+--- a/src/core/tcp_in.c
++++ b/src/core/tcp_in.c
+@@ -618,7 +618,7 @@ tcp_listen_input(struct tcp_pcb_listen *pcb)
+     /* For incoming segments with the ACK flag set, respond with a
+        RST. */
+     LWIP_DEBUGF(TCP_RST_DEBUG, ("tcp_listen_input: ACK in LISTEN, sending reset\n"));
+-    tcp_rst((const struct tcp_pcb*)pcb, ackno, seqno + tcplen, ip_current_dest_addr(),
++    tcp_rst((struct tcp_pcb*)pcb, ackno, seqno + tcplen, ip_current_dest_addr(),
+       ip_current_src_addr(), tcphdr->dest, tcphdr->src);
+   } else if (flags & TCP_SYN) {
+     LWIP_DEBUGF(TCP_DEBUG, ("TCP connection request %"U16_F" -> %"U16_F".\n", tcphdr->src, tcphdr->dest));
+@@ -855,6 +855,9 @@ tcp_process(struct tcp_pcb *pcb)
+       } else {
+         pcb->rtime = 0;
+         pcb->nrtx = 0;
++        /* If we were tracking RTOs since last ACK for TCP_INFO,
++         * it would be set to 0 here. */
++
+       }
+ 
+       /* Call the user specified function to call when successfully
+@@ -1205,6 +1208,9 @@ tcp_receive(struct tcp_pcb *pcb)
+         pcb->bytes_acked = 0;
+       }
+ 
++      /* If we were tracking RTOs since last ACK for TCP_INFO,
++       * it would be set to 0 here. */
++
+       /* Reset the number of retransmissions. */
+       pcb->nrtx = 0;
+ 
+diff --git a/src/core/tcp_out.c b/src/core/tcp_out.c
+index f4ccaf5d..f47d0a02 100644
+--- a/src/core/tcp_out.c
++++ b/src/core/tcp_out.c
+@@ -1451,6 +1451,7 @@ tcp_output_segment(struct tcp_seg *seg, struct tcp_pcb *pcb, struct netif *netif
+   }
+ #endif /* CHECKSUM_GEN_TCP */
+   TCP_STATS_INC(tcp.xmit);
++  ++pcb->tx_segs_total;
+ 
+   NETIF_SET_HINTS(netif, &(pcb->netif_hints));
+   seg->p->tag = pcb->tag;
+@@ -1482,7 +1483,7 @@ tcp_output_segment(struct tcp_seg *seg, struct tcp_pcb *pcb, struct netif *netif
+  * @param remote_port the remote TCP port to send the segment to
+  */
+ void
+-tcp_rst(const struct tcp_pcb *pcb, u32_t seqno, u32_t ackno,
++tcp_rst(struct tcp_pcb *pcb, u32_t seqno, u32_t ackno,
+   const ip_addr_t *local_ip, const ip_addr_t *remote_ip,
+   u16_t local_port, u16_t remote_port)
+ {
+@@ -1513,6 +1514,9 @@ tcp_rst(const struct tcp_pcb *pcb, u32_t seqno, u32_t ackno,
+ 
+   TCP_STATS_INC(tcp.xmit);
+   MIB2_STATS_INC(mib2.tcpoutrsts);
++  if (pcb != NULL) {
++    ++pcb->tx_segs_total;
++  }
+ 
+   netif = tcp_route(pcb, local_ip, remote_ip);
+   if (netif != NULL) {
+@@ -1554,6 +1558,7 @@ tcp_rexmit_rto_prepare(struct tcp_pcb *pcb)
+       LWIP_DEBUGF(TCP_RTO_DEBUG, ("tcp_rexmit_rto: segment busy\n"));
+       return ERR_VAL;
+     }
++    ++pcb->rtx_segs_total;
+   }
+   if (tcp_output_segment_busy(seg)) {
+     LWIP_DEBUGF(TCP_RTO_DEBUG, ("tcp_rexmit_rto: segment busy\n"));
+@@ -1661,6 +1666,8 @@ tcp_rexmit(struct tcp_pcb *pcb)
+ 
+   if (pcb->nrtx < 0xFF) {
+     ++pcb->nrtx;
++    /* If we were tracking RTOs since the last ACK for TCP_INFO,
++     * it would be incremented here. */
+   }
+ 
+   /* Don't take any rtt measurements after retransmitting. */
+@@ -1668,6 +1675,8 @@ tcp_rexmit(struct tcp_pcb *pcb)
+ 
+   /* Do the actual retransmission. */
+   MIB2_STATS_INC(mib2.tcpretranssegs);
++  ++pcb->rtx_segs_total;
++
+   /* No need to call tcp_output: we are always called from tcp_input()
+      and thus tcp_output directly returns. */
+   return ERR_OK;
+@@ -1753,6 +1762,7 @@ tcp_keepalive(struct tcp_pcb *pcb)
+     }
+ #endif /* CHECKSUM_GEN_TCP */
+     TCP_STATS_INC(tcp.xmit);
++    ++pcb->tx_segs_total;
+ 
+     /* Send output to IP */
+     NETIF_SET_HINTS(netif, &(pcb->netif_hints));
+@@ -2011,6 +2021,7 @@ tcp_zero_window_probe(struct tcp_pcb *pcb)
+     }
+ #endif
+     TCP_STATS_INC(tcp.xmit);
++    ++pcb->tx_segs_total;
+ 
+     /* Send output to IP */
+     NETIF_SET_HINTS(netif, &(pcb->netif_hints));
+diff --git a/src/include/lwip/priv/tcp_priv.h b/src/include/lwip/priv/tcp_priv.h
+index 9987657a..b627a76c 100644
+--- a/src/include/lwip/priv/tcp_priv.h
++++ b/src/include/lwip/priv/tcp_priv.h
+@@ -461,7 +461,7 @@ err_t tcp_enqueue_flags(struct tcp_pcb *pcb, u8_t flags);
+ 
+ void tcp_rexmit_seg(struct tcp_pcb *pcb, struct tcp_seg *seg);
+ 
+-void tcp_rst(const struct tcp_pcb* pcb, u32_t seqno, u32_t ackno,
++void tcp_rst(struct tcp_pcb* pcb, u32_t seqno, u32_t ackno,
+        const ip_addr_t *local_ip, const ip_addr_t *remote_ip,
+        u16_t local_port, u16_t remote_port);
+ 
+diff --git a/src/include/lwip/tcp.h b/src/include/lwip/tcp.h
+index aa079201..6b4437dc 100644
+--- a/src/include/lwip/tcp.h
++++ b/src/include/lwip/tcp.h
+@@ -254,6 +254,10 @@ struct tcp_pcb {
+ 
+   u16_t mss;   /* maximum segment size */
+ 
++  u32_t tx_segs_total; /* Total number of segments transmitted */
++  u32_t rtx_segs_total; /* Total number of segments retransmitted */
++  /* We could add a field to track RTOs since last ACK for TCP_INFO */
++
+   /* RTT (round trip time) estimation variables */
+   u32_t rttest; /* RTT estimate in 500ms ticks */
+   u32_t rtseq;  /* sequence number being timed */

@@ -1,0 +1,16 @@
+*~
+*.kate-swp
+*.kdev4
+*.pmd
+*.pyc
+*.swp
+.cscope.out
+.cxx
+.docker
+.DS_Store
+.idea
+.kdev_include_paths
+.tags
+.vscode
+build
+docker_build

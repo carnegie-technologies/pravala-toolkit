@@ -1,0 +1,55 @@
+diff -ru libb64-1.2.1/include/b64/cencode.h libb64/include/b64/cencode.h
+--- libb64-1.2.1/include/b64/cencode.h	2013-06-18 05:49:36.000000000 -0400
++++ libb64/include/b64/cencode.h	2014-10-20 18:05:51.357466066 -0400
+@@ -24,9 +24,9 @@
+ 
+ char base64_encode_value(char value_in);
+ 
+-int base64_encode_block(const char* plaintext_in, int length_in, char* code_out, base64_encodestate* state_in);
++int base64_encode_block(const char* plaintext_in, int length_in, char* code_out, base64_encodestate* state_in, int add_newline );
+ 
+-int base64_encode_blockend(char* code_out, base64_encodestate* state_in);
++int base64_encode_blockend(char* code_out, base64_encodestate* state_in, int add_newline );
+ 
+ #endif /* BASE64_CENCODE_H */
+ 
+diff -ru libb64-1.2.1/src/cencode.c libb64/src/cencode.c
+--- libb64-1.2.1/src/cencode.c	2013-06-18 05:49:36.000000000 -0400
++++ libb64/src/cencode.c	2014-10-20 18:06:23.133483866 -0400
+@@ -23,7 +23,7 @@
+ 	return encoding[(int)value_in];
+ }
+ 
+-int base64_encode_block(const char* plaintext_in, int length_in, char* code_out, base64_encodestate* state_in)
++int base64_encode_block(const char* plaintext_in, int length_in, char* code_out, base64_encodestate* state_in, int add_newline)
+ {
+ 	const char* plainchar = plaintext_in;
+ 	const char* const plaintextend = plaintext_in + length_in;
+@@ -73,7 +73,7 @@
+ 			*codechar++ = base64_encode_value(result);
+ 			
+ 			++(state_in->stepcount);
+-			if (state_in->stepcount == CHARS_PER_LINE/4)
++			if (add_newline && state_in->stepcount == CHARS_PER_LINE/4)
+ 			{
+ 				*codechar++ = '\n';
+ 				state_in->stepcount = 0;
+@@ -84,7 +84,7 @@
+ 	return codechar - code_out;
+ }
+ 
+-int base64_encode_blockend(char* code_out, base64_encodestate* state_in)
++int base64_encode_blockend(char* code_out, base64_encodestate* state_in, int add_newline)
+ {
+ 	char* codechar = code_out;
+ 	
+@@ -102,7 +102,8 @@
+ 	case step_A:
+ 		break;
+ 	}
+-	*codechar++ = '\n';
++	if (add_newline)
++        *codechar++ = '\n';
+ 	
+ 	return codechar - code_out;
+ }

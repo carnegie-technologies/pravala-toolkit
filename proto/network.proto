@@ -1,0 +1,29 @@
+
+# Basic network-related protocol types
+
+namespace Network
+{
+
+// Transport protocol types
+enum TransportProtocol
+{
+    Invalid = -1 [ default ]; // Invalid protocol.
+    UDP     = 0; // UDP protocol
+    TCP     = 1; // TCP protocol
+}
+
+// Stores network address and port pair
+struct AddressPort
+{
+    required ip_addr addr : 1; // Network address
+    required uint16  port : 2; // Port number
+}
+
+// Stores network address and netmask
+struct AddressMask
+{
+    required ip_addr addr : 1; // Network address
+    required uint8   mask : 2; // Netmask (0-32 if addr is IPv4, 0-128 if addr is IPv6)
+}
+
+}

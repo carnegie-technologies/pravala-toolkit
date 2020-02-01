@@ -1,0 +1,96 @@
+import org.apache.tools.ant.taskdefs.condition.Os
+
+def buildTime() {
+    new Date().format("yyyy-MM-dd HH:mm:ss Z", TimeZone.getDefault())
+}
+
+def buildHost() {
+    def cmd = 'hostname'
+    cmd.execute().text.trim()
+}
+
+def gitBranch() {
+    def cmd = 'git branch --show-current'
+    cmd.execute().text.trim()
+}
+
+def gitRev() {
+    def cmd = 'git rev-parse --short HEAD'
+    cmd.execute().text.trim()
+}
+
+def gitHash() {
+    def cmd = 'git rev-parse HEAD'
+    cmd.execute().text.trim()
+}
+
+def gitModified() {
+     def out = new ByteArrayOutputStream()
+     exec {
+        commandLine "git", "status", "-s"
+        standardOutput = out
+    }
+    if (out.toString().trim() == "") {
+        return ""
+    }
+    return "-modified"
+}
+
+def gitNativeRev() {
+     def out = new ByteArrayOutputStream()
+     exec {
+        commandLine "git", "submodule", "foreach", "--quiet",
+                    "if [ \$name = native ]; then git rev-parse --short HEAD; fi"
+        standardOutput = out
+    }
+    return out.toString().trim()
+}
+
+def gitNativeModified() {
+     def out = new ByteArrayOutputStream()
+     exec {
+        commandLine "git", "submodule", "foreach", "--quiet",
+                    "if [ \$name = native ]; then git status -s; fi"
+        standardOutput = out
+    }
+    if (out.toString().trim() == "") {
+        return ""
+    }
+    return "-modified"
+}
+
+// Common Android project configuration.
+android {
+    compileSdkVersion 28
+    buildToolsVersion '28.0.3'
+    useLibrary 'org.apache.http.legacy'
+
+    defaultConfig {
+        minSdkVersion 17
+        targetSdkVersion 28
+
+        ndk {
+            abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86_64'
+        }
+
+        buildConfigField "String", "BUILD_HOST", "\"${buildHost()}\""
+        buildConfigField "String", "BUILD_TIME", "\"${buildTime()}\""
+        buildConfigField "String", "GIT_REV", "\"${gitRev()}${gitModified()}\""
+        buildConfigField "String", "GIT_NATIVE_REV", "\"${gitNativeRev()}${gitNativeModified()}\""
+        buildConfigField "String", "GIT_HASH", "\"${gitHash()}\""
+    }
+
+    assert sdkDirectory != null: "Android SDK not found. Please set ANDROID_HOME."
+    assert sdkDirectory.exists(): "Android SDK path '" + sdkDirectory + "' bad or missing. Please set ANDROID_HOME."
+
+    assert ndkDirectory != null: "Android NDK not found. Please set ANDROID_NDK_HOME."
+    assert ndkDirectory.exists(): "Android NDK path '" + ndkDirectory + "' bad or missing. Please set ANDROID_NDK_HOME."
+
+    if ( Os.isFamily ( Os.FAMILY_WINDOWS ) ) {
+        project.ext.set ( 'ndkBuildBinary', new File ( ndkDirectory, 'ndk-build.cmd' ) )
+    } else {
+        project.ext.set ( 'ndkBuildBinary', new File ( ndkDirectory, 'ndk-build' ) )
+    }
+
+    assert project.ext.ndkBuildBinary.exists(): 'No ndk-build binary for current OS.'
+}

@@ -1,0 +1,12 @@
+[submodule "3rdparty/jansson/jansson"]
+	path = 3rdparty/jansson/jansson
+	url = https://github.com/akheron/jansson.git
+[submodule "3rdparty/http-parser"]
+	path = 3rdparty/http-parser
+	url = https://github.com/nodejs/http-parser.git
+[submodule "3rdparty/dnsc"]
+	path = 3rdparty/dnsc
+	url = https://github.com/wahern/dns.git
+[submodule "3rdparty/lwip/lwip"]
+	path = 3rdparty/lwip/lwip
+	url = git://git.savannah.nongnu.org/lwip.git
